@@ -95,21 +95,6 @@
       </div>
     </div>
 
-    <!-- 無圖卡自學模式切換列（僅在無圖卡模式顯示） -->
-    <div id="no-card-switcher" class="hidden pointer-events-auto flex items-center justify-between gap-2 bg-slate-900/85 backdrop-blur-md border border-emerald-400/50 rounded-xl px-3 py-1.5 shadow-lg">
-      <span class="text-[11px] font-bold text-emerald-300 shrink-0">🏠 無圖卡自學模式：</span>
-      <div class="flex items-center gap-1">
-        <button id="nc-btn-drink" onclick="switchNoCardItem('drink')"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-500 text-slate-950 transition">
-          🧋 飲料杯
-        </button>
-        <button id="nc-btn-bento" onclick="switchNoCardItem('bento')"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-800 text-slate-300 hover:text-white transition">
-          🍱 便當盒
-        </button>
-      </div>
-    </div>
-
     <!-- iframe 內嵌提醒條 -->
     <div id="iframe-warning-bar" class="hidden pointer-events-auto bg-rose-950/95 border border-rose-400 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 shadow-lg">
       <span class="text-[11px] text-rose-100 leading-tight">⚠️ 內嵌網頁限制相機與感測器，請點右側開啟獨立分頁：</span>
@@ -146,16 +131,12 @@
   </header>
 
   <!-- 2. 掃描準心框（開啟相機後、尚未偵測到圖卡時顯示） -->
-  <div id="scanning-reticle" class="hidden fixed inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
+  <div id="scanning-reticle" class="hidden fixed inset-0 z-10 pointer-events-none flex flex-col items-center justify-center">
     <div class="scanner-frame w-56 h-56 sm:w-64 sm:h-64 border-4 border-dashed border-emerald-400/85 rounded-3xl flex flex-col items-center justify-end p-4 bg-emerald-500/5">
       <span class="bg-slate-900/85 text-emerald-200 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-400/40 text-center">
         🔍 請對準「飲料杯」或「便當盒」照片
       </span>
     </div>
-    <button onclick="enterNoCardMode('drink')"
-      class="pointer-events-auto bg-slate-900/90 hover:bg-slate-800 active:scale-95 text-emerald-300 border border-emerald-400/70 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-xl transition">
-      🏠 沒有圖卡？點此直接擺放模型練習
-    </button>
   </div>
 
   <!-- 3. 啟動前引導遮罩 -->
@@ -235,6 +216,10 @@
           class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-sm transition">
           🔄 重新練習本關
         </button>
+        <button onclick="returnToGASStep2()"
+          class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition">
+          ✅ 返回任務頁面，確認完成並作答
+        </button>
       </div>
     </div>
   </div>
@@ -312,7 +297,6 @@
     const pillsBarEl = document.getElementById('step-pills-bar');
     const guideBannerEl = document.getElementById('action-guide-banner');
     const binsContainerEl = document.getElementById('bins-container');
-    const noCardSwitcherEl = document.getElementById('no-card-switcher');
 
     let sceneLoaded = Boolean(sceneEl.hasLoaded);
     let drinkLoaded = false;
@@ -323,7 +307,6 @@
     // 任務狀態
     let activeTarget = null; // null | 'drink' | 'bento'
     let isTargetVisible = false;
-    let isNoCardMode = false;
     let currentStep = 1;
     let rinseAmount = 0;
 
@@ -606,7 +589,6 @@
     });
 
     function onTargetFound(type) {
-      if (isNoCardMode) return;
       isTargetVisible = true;
       if (activeTarget === null) {
         activeTarget = type;
@@ -625,50 +607,10 @@
     }
 
     function onTargetLost(type) {
-      if (isNoCardMode) return;
       isTargetVisible = false;
       if (activeTarget === type && dragMode !== 'container') {
         attachModelToCameraStage(type, 0, -0.1);
         cameraStatusEl.textContent = '🟡 暫離圖卡中（可繼續手動操作，或對準圖卡追蹤）';
-      }
-    }
-
-    // 無圖卡自學模式：直接在相機前景擺放模型練習
-    function enterNoCardMode(itemType = 'drink') {
-      unlockAudio();
-      isNoCardMode = true;
-      isTargetVisible = false;
-      activeTarget = itemType;
-      resetStepState(true);
-      attachModelToCameraStage(itemType, 0, -0.1);
-      updateNoCardSwitcherUI(itemType);
-      noCardSwitcherEl.classList.remove('hidden');
-      showTaskUI(itemType);
-      cameraStatusEl.textContent = '🏠 無圖卡自學模式（實境相機當背景）';
-    }
-
-    function switchNoCardItem(itemType) {
-      if (!isNoCardMode) return;
-      if (activeTarget && activeTarget !== itemType) {
-        attachModelToPhoto(activeTarget);
-      }
-      document.getElementById('badge-modal').classList.add('hidden');
-      activeTarget = itemType;
-      resetStepState(true);
-      attachModelToCameraStage(itemType, 0, -0.1);
-      updateNoCardSwitcherUI(itemType);
-      showTaskUI(itemType);
-    }
-
-    function updateNoCardSwitcherUI(itemType) {
-      const btnD = document.getElementById('nc-btn-drink');
-      const btnB = document.getElementById('nc-btn-bento');
-      if (itemType === 'drink') {
-        btnD.className = 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-500 text-slate-950 transition';
-        btnB.className = 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-800 text-slate-300 hover:text-white transition';
-      } else {
-        btnB.className = 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-500 text-slate-950 transition';
-        btnD.className = 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-800 text-slate-300 hover:text-white transition';
       }
     }
 
@@ -714,7 +656,6 @@
       }
       activeTarget = null;
       isTargetVisible = false;
-      isNoCardMode = false;
       isPointerDown = false;
       hasDragged = false;
       dragMode = null;
@@ -724,7 +665,6 @@
       guideBannerEl.classList.add('hidden');
       binsContainerEl.classList.add('hidden');
       rescanBtn.classList.add('hidden');
-      noCardSwitcherEl.classList.add('hidden');
       hideElfFeedback();
       reticleEl.classList.remove('hidden');
 
@@ -1185,13 +1125,24 @@
     function resetCurrentTask() {
       document.getElementById('badge-modal').classList.add('hidden');
       resetStepState(true);
-      if (activeTarget) {
-        if (isTargetVisible && !isNoCardMode) {
-          attachModelToPhoto(activeTarget);
-        } else {
-          attachModelToCameraStage(activeTarget, 0, -0.1);
-        }
+      if (isTargetVisible && activeTarget) {
+        attachModelToPhoto(activeTarget);
       }
+    }
+
+    function returnToGASStep2() {
+      const gasStep2Url = 'https://script.google.com/macros/s/AKfycbzFdN05GRHTa9qTRbppQSr9a7aTsKvv6sg9SqKGLe_NpIFb2FVU3jWL4xRAPJ3qGZ77Hw/exec?step=2';
+      try {
+        sceneEl.systems['mindar-image-system']?.stop();
+      } catch (e) {}
+      try {
+        window.close();
+      } catch (e) {}
+      setTimeout(() => {
+        if (!window.closed) {
+          window.location.href = gasStep2Url;
+        }
+      }, 250);
     }
 
     window.addEventListener('pagehide', () => {
