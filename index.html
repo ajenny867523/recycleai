@@ -153,9 +153,10 @@
       class="bg-slate-700 text-slate-300 font-extrabold text-base px-7 py-3 rounded-full shadow-2xl transition">
       ⏳ 3D 模型與圖卡資料載入中...
     </button>
-    <p class="text-[11px] text-slate-400 mt-2.5 max-w-xs leading-relaxed">
+    <p id="start-hint" class="text-[11px] text-slate-400 mt-2.5 max-w-xs leading-relaxed">
       請允許瀏覽器使用「相機」與「動作感測器」權限
     </p>
+    <div id="start-error-msg" class="hidden mt-3 max-w-xs bg-rose-950/90 border border-rose-400 text-rose-100 text-xs rounded-xl px-3.5 py-2.5 leading-relaxed text-left shadow-lg"></div>
   </div>
 
   <!-- 4. 回收小精靈溫和鷹架回饋氣泡 -->
@@ -529,48 +530,75 @@
       setTimeout(() => window.dispatchEvent(new Event('resize')), 900);
     });
 
-    sceneEl.addEventListener('arError', () => {
+    const startErrorEl = document.getElementById('start-error-msg');
+    let motionListenerBound = false;
+
+    function showStartError(msg) {
+      cameraStatusEl.textContent = msg;
+      if (startErrorEl) {
+        startErrorEl.innerHTML = `${msg}<br><span class="text-rose-200/90 text-[11px] block mt-1">💡 若使用 iPad Chrome，請檢查「iPad 設定 → Chrome → 開啟相機」，或改用 <b>Safari</b> 開啟本網頁。</span>`;
+        startErrorEl.classList.remove('hidden');
+      }
+    }
+
+    function requestMotionPermissionNonBlocking() {
+      if (motionListenerBound) return;
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          DeviceMotionEvent.requestPermission().then((res) => {
+            if (res === 'granted' && !motionListenerBound) {
+              motionListenerBound = true;
+              window.addEventListener('devicemotion', handleDeviceMotion);
+            }
+          }).catch(() => {});
+        } catch (e) {}
+      } else {
+        motionListenerBound = true;
+        window.addEventListener('devicemotion', handleDeviceMotion);
+      }
+    }
+
+    sceneEl.addEventListener('arError', (ev) => {
       arStarting = false;
       startBtn.disabled = false;
       startBtn.textContent = '🔄 重新嘗試啟動相機';
-      cameraStatusEl.textContent = '❌ 無法啟動 AR 相機（請確認 HTTPS 與相機權限）';
+      const detailErr = ev?.detail?.error?.name || ev?.detail?.error || '';
+      showStartError(`❌ 無法啟動 AR 相機${detailErr ? ` (${detailErr})` : '（請確認 HTTPS 與相機權限）'}`);
     });
 
     async function startMindAR() {
       if (arStarted || arStarting || !sceneLoaded || !drinkLoaded || !bentoLoaded) return;
 
+      if (startErrorEl) startErrorEl.classList.add('hidden');
       unlockAudio();
 
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        cameraStatusEl.textContent = '⚠️ 需要 HTTPS 網址與支援相機的瀏覽器';
+        showStartError('⚠️ 目前瀏覽器環境不支援相機存取（需 HTTPS 或改用 iPad Safari 開啟）');
         return;
       }
-
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-          await DeviceMotionEvent.requestPermission();
-        } catch (e) {}
-      }
-      window.addEventListener('devicemotion', handleDeviceMotion);
 
       arStarting = true;
       startBtn.disabled = true;
       startBtn.textContent = '⏳ 正在開啟攝影機...';
-      cameraStatusEl.textContent = '請允許瀏覽器使用相機與感測器權限...';
+      cameraStatusEl.textContent = '請允許瀏覽器使用相機權限...';
+
+      // 先同步觸發 MindAR 啟動相機（避免 await DeviceMotionEvent.requestPermission 在 iPad Chrome 上卡住或遺失使用者手勢）
+      const startPromise = sceneEl.systems['mindar-image-system'].start();
+      requestMotionPermissionNonBlocking();
 
       try {
-        await sceneEl.systems['mindar-image-system'].start();
+        await startPromise;
       } catch (err) {
         arStarting = false;
         startBtn.disabled = false;
         startBtn.textContent = '🔄 重新嘗試啟動相機';
         const errName = err?.name || '';
         if (errName === 'NotAllowedError') {
-          cameraStatusEl.textContent = '❌ 相機權限被拒絕，請允許相機後重試';
+          showStartError('❌ 相機權限被拒絕，請允許相機後重試');
         } else if (errName === 'NotReadableError') {
-          cameraStatusEl.textContent = '❌ 攝影機可能正被其他視窗/程式佔用中';
+          showStartError('❌ 攝影機可能正被其他視窗/程式佔用中');
         } else {
-          cameraStatusEl.textContent = `❌ 相機啟動失敗 (${errName || '未知錯誤'})`;
+          showStartError(`❌ 相機啟動失敗 (${errName || '未知錯誤'})`);
         }
       }
     }
@@ -801,6 +829,8 @@
       if (!activeTarget || e.target.closest('button, a')) return;
       if (!document.getElementById('badge-modal').classList.contains('hidden')) return;
 
+      unlockAudio();
+      requestMotionPermissionNonBlocking();
       isPointerDown = true;
       hasDragged = false;
       dragMode = null;
