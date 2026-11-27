@@ -1331,7 +1331,7 @@
 
       const baseUrl = getSafeReturnUrl();
       const curParams = new URLSearchParams(window.location.search);
-      const extra = ['g', 'c', 's', 'n']
+      const extra = ['stuClass', 'stuSeat', 'stuName']
         .filter((k) => curParams.get(k))
         .map((k) => `${k}=${encodeURIComponent(curParams.get(k))}`)
         .join('&');
