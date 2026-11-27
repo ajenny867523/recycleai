@@ -95,6 +95,19 @@
       </div>
     </div>
 
+    <!-- 雙徽章收集進度列（開啟相機後常駐顯示，集滿 2/2 解鎖返回按鈕） -->
+    <div id="ar-badge-bar" class="hidden pointer-events-auto flex items-center justify-between gap-2 bg-slate-900/85 backdrop-blur-md border border-emerald-400/40 rounded-xl px-3 py-1.5 shadow-lg">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span id="ar-badge-count" class="text-[11px] sm:text-xs font-extrabold text-amber-300 shrink-0">🏅 徽章：0／2</span>
+        <span id="ar-badge-drink" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 truncate">🧋 飲料杯 🔒</span>
+        <span id="ar-badge-bento" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 truncate">🍱 便當盒 🔒</span>
+      </div>
+      <button id="btn-header-return" onclick="returnToGASStep2()"
+        class="hidden px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-sky-500 hover:bg-sky-400 text-slate-950 shrink-0 transition">
+        ✅ 返回作答
+      </button>
+    </div>
+
     <!-- iframe 內嵌提醒條 -->
     <div id="iframe-warning-bar" class="hidden pointer-events-auto bg-rose-950/95 border border-rose-400 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 shadow-lg">
       <span class="text-[11px] text-rose-100 leading-tight">⚠️ 內嵌網頁限制相機與感測器，請點右側開啟獨立分頁：</span>
@@ -203,13 +216,32 @@
   <!-- 6. 通關徽章視窗 -->
   <div id="badge-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-5">
     <div class="bg-slate-900 border-2 border-emerald-400 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
-      <div class="w-24 h-24 mx-auto bg-gradient-to-tr from-emerald-400 to-teal-300 rounded-full flex items-center justify-center text-5xl shadow-lg mb-4">
+      <div class="w-20 h-20 mx-auto bg-gradient-to-tr from-emerald-400 to-teal-300 rounded-full flex items-center justify-center text-4xl shadow-lg mb-3">
         🏅
       </div>
-      <h2 class="text-xl font-extrabold text-emerald-300">任務成功！解鎖「回收特務」徽章</h2>
+      <h2 id="badge-title" class="text-xl font-extrabold text-emerald-300">獲得「回收特務」徽章！</h2>
       <p id="badge-summary" class="text-sm text-slate-300 mt-2 leading-relaxed"></p>
-      <div class="mt-5 flex flex-col gap-2">
-        <button onclick="scanAnotherCard()"
+
+      <!-- 雙徽章進度顯示 -->
+      <div class="mt-4 grid grid-cols-2 gap-2">
+        <div id="modal-slot-drink" class="rounded-xl p-2.5 border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400">
+          <div class="text-lg mb-0.5" id="modal-slot-drink-icon">🔒</div>
+          <div>🧋 飲料杯徽章</div>
+        </div>
+        <div id="modal-slot-bento" class="rounded-xl p-2.5 border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400">
+          <div class="text-lg mb-0.5" id="modal-slot-bento-icon">🔒</div>
+          <div>🍱 便當盒徽章</div>
+        </div>
+      </div>
+
+      <!-- 集滿 2/2 枚才顯示的 5 碼備援通關碼 -->
+      <div id="modal-unlock-code-box" class="hidden mt-3 rounded-xl bg-amber-950/80 border border-amber-400/80 px-3 py-2.5 text-center">
+        <div class="text-[11px] font-bold text-amber-200">🔑 5 碼備援通關碼（切換分頁未解鎖時使用）</div>
+        <div class="text-2xl font-black tracking-[0.28em] text-amber-300 mt-0.5 select-all">11512</div>
+      </div>
+
+      <div class="mt-4 flex flex-col gap-2">
+        <button id="btn-scan-next" onclick="scanAnotherCard()"
           class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3 rounded-xl transition">
           📷 繼續掃描下一張圖卡
         </button>
@@ -217,9 +249,9 @@
           class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-sm transition">
           🔄 重新練習本關
         </button>
-        <button onclick="returnToGASStep2()"
-          class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition">
-          ✅ 返回任務頁面，確認完成並作答
+        <button id="btn-return-gas" disabled onclick="returnToGASStep2()"
+          class="w-full bg-slate-700 text-slate-400 cursor-not-allowed font-extrabold py-3 rounded-xl text-sm transition">
+          🔒 需集滿 2／2 枚徽章才可返回評量
         </button>
       </div>
     </div>
@@ -522,7 +554,9 @@
       arStarting = false;
       arStarted = true;
       document.getElementById('start-overlay').classList.add('hidden');
+      document.getElementById('ar-badge-bar').classList.remove('hidden');
       reticleEl.classList.remove('hidden');
+      updateARBadgeBar();
       cameraStatusEl.textContent = '🟢 AR 鏡頭掃描中（請對準圖卡）';
 
       window.dispatchEvent(new Event('resize'));
@@ -1139,12 +1173,129 @@
       document.getElementById('elf-feedback').classList.add('hidden');
     }
 
+    // =========================================================================
+    // 雙徽章收集狀態管理（需完成飲料杯 + 便當盒各 1 枚，滿 2/2 才解鎖返回）
+    // =========================================================================
+    const BADGE_STORAGE_KEY = 'recycle_ar_badges_v1';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzFdN05GRHTa9qTRbppQSr9a7aTsKvv6sg9SqKGLe_NpIFb2FVU3jWL4xRAPJ3qGZ77Hw/exec';
+    let earnedBadges = { drink: false, bento: false };
+
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(BADGE_STORAGE_KEY) || '{}');
+      if (saved && typeof saved === 'object') {
+        earnedBadges.drink = Boolean(saved.drink);
+        earnedBadges.bento = Boolean(saved.bento);
+      }
+    } catch (e) {}
+
+    function saveBadges() {
+      try {
+        sessionStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(earnedBadges));
+      } catch (e) {}
+    }
+
+    function getEarnedBadgeCount() {
+      return (earnedBadges.drink ? 1 : 0) + (earnedBadges.bento ? 1 : 0);
+    }
+
+    function notifyGASProgress(autoProceed = false) {
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'RECYCLE_AR_PROGRESS',
+            drink: earnedBadges.drink,
+            bento: earnedBadges.bento,
+            autoProceed: autoProceed
+          }, '*');
+        }
+      } catch (e) {}
+    }
+
+    function updateARBadgeBar() {
+      const count = getEarnedBadgeCount();
+      const countEl = document.getElementById('ar-badge-count');
+      const drinkEl = document.getElementById('ar-badge-drink');
+      const bentoEl = document.getElementById('ar-badge-bento');
+      const headerReturnBtn = document.getElementById('btn-header-return');
+
+      if (countEl) {
+        countEl.textContent = count >= 2 ? '🏅 徽章：2／2（已集滿）' : `🏅 徽章：${count}／2`;
+      }
+      if (drinkEl) {
+        drinkEl.textContent = earnedBadges.drink ? '🧋 飲料杯 🏅' : '🧋 飲料杯 🔒';
+        drinkEl.className = earnedBadges.drink
+          ? 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 truncate'
+          : 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 truncate';
+      }
+      if (bentoEl) {
+        bentoEl.textContent = earnedBadges.bento ? '🍱 便當盒 🏅' : '🍱 便當盒 🔒';
+        bentoEl.className = earnedBadges.bento
+          ? 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 truncate'
+          : 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 truncate';
+      }
+      if (headerReturnBtn) {
+        if (count >= 2) headerReturnBtn.classList.remove('hidden');
+        else headerReturnBtn.classList.add('hidden');
+      }
+    }
+
     function showBadgeModal() {
       const isDrink = activeTarget === 'drink';
+      if (isDrink) earnedBadges.drink = true;
+      else earnedBadges.bento = true;
+      saveBadges();
+      updateARBadgeBar();
+      notifyGASProgress(false);
+
       playBadgeFanfare();
-      document.getElementById('badge-summary').textContent = isDrink
-        ? '你成功完成飲料杯前處理：手動撕除封膜、拔除吸管丟一般垃圾，並沖洗後投入資源回收桶！'
-        : '你成功完成便當盒前處理：手動將廚餘倒進廚餘桶，並沖洗後把紙餐盒投入資源回收桶！';
+      const count = getEarnedBadgeCount();
+
+      const titleEl = document.getElementById('badge-title');
+      const summaryEl = document.getElementById('badge-summary');
+      const scanNextBtn = document.getElementById('btn-scan-next');
+      const returnBtn = document.getElementById('btn-return-gas');
+      const codeBox = document.getElementById('modal-unlock-code-box');
+
+      const slotD = document.getElementById('modal-slot-drink');
+      const slotDIcon = document.getElementById('modal-slot-drink-icon');
+      const slotB = document.getElementById('modal-slot-bento');
+      const slotBIcon = document.getElementById('modal-slot-bento-icon');
+
+      if (earnedBadges.drink) {
+        slotD.className = 'rounded-xl p-2.5 border border-emerald-400 bg-emerald-950/60 text-xs font-bold text-emerald-300';
+        slotDIcon.textContent = '🏅';
+      } else {
+        slotD.className = 'rounded-xl p-2.5 border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400';
+        slotDIcon.textContent = '🔒';
+      }
+
+      if (earnedBadges.bento) {
+        slotB.className = 'rounded-xl p-2.5 border border-emerald-400 bg-emerald-950/60 text-xs font-bold text-emerald-300';
+        slotBIcon.textContent = '🏅';
+      } else {
+        slotB.className = 'rounded-xl p-2.5 border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-400';
+        slotBIcon.textContent = '🔒';
+      }
+
+      if (count >= 2) {
+        titleEl.textContent = '🎉 集滿 2／2 枚「回收特務徽章」！';
+        summaryEl.textContent = '太強了！你已經完成「🧋 手搖飲杯」與「🍱 紙便當盒」兩關任務，現在可以返回評量頁面作答囉！';
+        scanNextBtn.textContent = '📷 繼續掃描其他圖卡';
+        codeBox.classList.remove('hidden');
+        returnBtn.disabled = false;
+        returnBtn.className = 'w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm transition shadow-lg';
+        returnBtn.textContent = '✅ 已集滿 2 枚！返回任務頁面開始作答';
+      } else {
+        const missingName = earnedBadges.drink ? '🍱 紙便當盒' : '🧋 手搖飲杯';
+        titleEl.textContent = `獲得「${isDrink ? '飲料杯' : '便當盒'}」徽章！（1／2）`;
+        summaryEl.textContent = `完成本關前處理囉！還差「${missingName}」的 1 枚徽章，集滿 2／2 枚才會解鎖返回評量按鈕。`;
+        scanNextBtn.textContent = `📷 繼續掃描「${missingName}」圖卡（還差 1 枚）`;
+        codeBox.classList.add('hidden');
+        returnBtn.disabled = true;
+        returnBtn.className = 'w-full bg-slate-700 text-slate-400 cursor-not-allowed font-extrabold py-3 rounded-xl text-sm transition';
+        returnBtn.textContent = `🔒 需集滿 2／2 枚徽章才可返回評量（目前 ${count}/2）`;
+      }
+
       document.getElementById('badge-modal').classList.remove('hidden');
     }
 
@@ -1160,19 +1311,40 @@
       }
     }
 
+    function getSafeReturnUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get('returnUrl');
+      if (raw && raw.startsWith('https://script.google.com/')) {
+        return raw;
+      }
+      return DEFAULT_GAS_URL;
+    }
+
     function returnToGASStep2() {
-      const gasStep2Url = 'https://script.google.com/macros/s/AKfycbzFdN05GRHTa9qTRbppQSr9a7aTsKvv6sg9SqKGLe_NpIFb2FVU3jWL4xRAPJ3qGZ77Hw/exec?step=2';
+      if (getEarnedBadgeCount() < 2) {
+        showElfFeedback('必須完成「🧋 飲料杯」與「🍱 便當盒」兩關、集滿 2／2 枚徽章才能返回評量喔！');
+        return;
+      }
       try {
         sceneEl.systems['mindar-image-system']?.stop();
       } catch (e) {}
-      try {
-        window.close();
-      } catch (e) {}
-      setTimeout(() => {
-        if (!window.closed) {
-          window.location.href = gasStep2Url;
-        }
-      }, 250);
+
+      const baseUrl = getSafeReturnUrl();
+      const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'arDone=2';
+
+      if (window.opener && !window.opener.closed) {
+        notifyGASProgress(true);
+        try {
+          window.close();
+        } catch (e) {}
+        setTimeout(() => {
+          if (!window.closed) {
+            window.location.href = targetUrl;
+          }
+        }, 250);
+      } else {
+        window.location.href = targetUrl;
+      }
     }
 
     window.addEventListener('pagehide', () => {
