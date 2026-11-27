@@ -1330,7 +1330,12 @@
       } catch (e) {}
 
       const baseUrl = getSafeReturnUrl();
-      const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'arDone=2';
+      const curParams = new URLSearchParams(window.location.search);
+      const extra = ['g', 'c', 's', 'n']
+        .filter((k) => curParams.get(k))
+        .map((k) => `${k}=${encodeURIComponent(curParams.get(k))}`)
+        .join('&');
+      const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'arDone=2' + (extra ? '&' + extra : '');
       window.location.href = targetUrl;
     }
 
